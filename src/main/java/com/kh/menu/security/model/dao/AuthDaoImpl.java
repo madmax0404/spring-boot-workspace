@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import com.kh.menu.security.model.dto.AuthDto.User;
 import com.kh.menu.security.model.dto.AuthDto.UserAuthority;
 import com.kh.menu.security.model.dto.AuthDto.UserCredential;
+import com.kh.menu.security.model.dto.AuthDto.UserIdentities;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,4 +39,19 @@ public class AuthDaoImpl implements AuthDao {
     public User findUserByUserId(Long userId) {
         return session.selectOne("auth.findUserByUserId", userId);
     }
+
+	@Override
+	public void insertUserIdentities(UserIdentities userIdentities) {
+		session.insert("auth.insertUserIdentities", userIdentities);
+	}
+
+	@Override
+	public void updateUserIdentities(UserIdentities userIdentities) {
+		session.update("auth.updateUserIdentities", userIdentities);
+	}
+
+	@Override
+	public String getKakaoAccessToken(Long userId) {
+		return session.selectOne("auth.getKakaoAccessToken", userId);
+	}
 }

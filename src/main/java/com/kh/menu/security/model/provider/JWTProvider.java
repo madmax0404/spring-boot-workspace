@@ -54,7 +54,8 @@ public class JWTProvider {
 		return Jwts.builder()
 				.setSubject(String.valueOf(id)) // 페이로드에 저장할 id
 				.setIssuedAt(now) // 토큰 발행 시간
-				.setExpiration(new Date(now.getTime() + (1000 * 60 * minutes))) // 만료 시간
+//				.setExpiration(new Date(now.getTime() + (1000L * 60 * minutes))) // 만료 시간
+				.setExpiration(new Date(now.getTime() + (10000))) // 만료 시간
 				.signWith(key, SignatureAlgorithm.HS256) // 암호화에 사용할 키값과, 알고리즘
 				.compact();
 	}
@@ -70,7 +71,7 @@ public class JWTProvider {
 		return Jwts.builder()
 				.setSubject(String.valueOf(id)) // 페이로드에 저장할 id
 				.setIssuedAt(now) // 토큰 발행 시간
-				.setExpiration(new Date(System.currentTimeMillis() + (1000 * 60 * 60 * 24 * days))) // 만료 시간
+				.setExpiration(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * days))) // 만료 시간
 				.signWith(refreshKey, SignatureAlgorithm.HS256) // 암호화에 사용할 키값과, 알고리즘
 				.compact();
 	}

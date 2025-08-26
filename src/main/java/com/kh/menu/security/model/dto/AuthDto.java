@@ -56,6 +56,18 @@ public class AuthDto {
 		private Long userId;
 		private List<String> roles;
 	}
+	
+	@Data
+	@NoArgsConstructor
+	@AllArgsConstructor
+	@Builder
+	public static class UserIdentities {
+		private Long id;
+		private Long userId;
+		private String accessToken;
+		private String provider;
+		private String providerUserId;
+	}
 }
 
 

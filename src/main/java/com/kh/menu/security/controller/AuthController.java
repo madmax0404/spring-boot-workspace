@@ -8,6 +8,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,16 +16,22 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.kh.menu.security.model.dto.AuthDto.AuthResult;
 import com.kh.menu.security.model.dto.AuthDto.LoginRequest;
+import com.kh.menu.security.model.dto.AuthDto.User;
+import com.kh.menu.security.model.provider.JWTProvider;
 import com.kh.menu.security.model.service.AuthService;
+import com.kh.menu.security.model.service.KakaoService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
+	private final JWTProvider jwt;
 	private final AuthService service;
-	private static final String REFRESH_COOKIE = "REFRESH_TOKEN";
+	private final KakaoService kakaoService;
+	public static final String REFRESH_COOKIE = "REFRESH_TOKEN";
 	/**
 	 * 로그인
 	 * - 현재 DB에 존재하지 않는 이메일이면 404 반환.
@@ -45,6 +52,7 @@ public class AuthController {
 		
 		try {
 			AuthResult result = service.login(req.getEmail(), req.getPassword());
+			System.out.println(result.getRefreshToken());
 			
 			// refreshToken은 http-only 쿠키로 설정하여 반환.
 			ResponseCookie refreshCookie =
@@ -56,6 +64,8 @@ public class AuthController {
 					.sameSite("Lax")
 					.maxAge(Duration.ofDays(7)) // 만료시간
 					.build();
+			
+			System.out.println(refreshCookie);
 			
 			return ResponseEntity.ok()
 					.header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
@@ -105,6 +115,65 @@ public class AuthController {
 		
 		return ResponseEntity.ok(result);
 	}
+	
+	// logout
+	@PostMapping("/logout")
+	public ResponseEntity<Void> logout(HttpServletRequest req) {
+		// 1. 클라이언트의 헤더에서 id값 추출
+		String accessToken = resolveAccessToken(req);
+		Long userId = jwt.getUserId(accessToken);
+		
+		// 2. DB에서 사용자의 카카오 액세스 토큰 조회
+		String kakaoAccessToken = service.getKakaoAccessToken(userId);
+		
+		if (kakaoAccessToken != null) {
+			// 카카오에 로그아웃 요청(액세스 토큰 만료)
+			kakaoService.logout(kakaoAccessToken);
+		}
+		
+		// 리프레쉬 토큰 제거
+		ResponseCookie refreshCookie =
+				ResponseCookie
+				.from(REFRESH_COOKIE, "")
+				.httpOnly(true)
+				.secure(false) // true: https 에서만 사용. false: http/https 에서 사용.
+				.path("/")
+				.sameSite("Lax")
+				.maxAge(0) // 만료시간
+				.build();
+		
+		return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, refreshCookie.toString()).build();
+	}
+	
+	@GetMapping("/me")
+	public ResponseEntity<User> getUserInfo(HttpServletRequest req) {
+		// 1. 요청 헤더에서 jwt 토큰 추출
+		String jwtToken = resolveAccessToken(req);
+		
+		if (jwtToken == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		
+		// 2. JWT 토큰에서 ID 값 추출
+		Long userId = jwt.getUserId(jwtToken);
+		
+		// 사용자정보 조회
+		User user = service.findUserByUserId(userId);
+		
+		if (user == null) {
+			return ResponseEntity.notFound().build();
+		}
+		
+		return ResponseEntity.ok(user);
+	}
+	
+	public String resolveAccessToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
 }
 
 

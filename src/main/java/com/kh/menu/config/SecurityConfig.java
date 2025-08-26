@@ -6,16 +6,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.kh.menu.security.filter.JWTAuthenticationFilter;
+import com.kh.menu.security.model.handler.OAuth2SuccessHandler;
+import com.kh.menu.security.model.service.OAuth2Service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -23,17 +28,34 @@ import lombok.RequiredArgsConstructor;
 @EnableWebSecurity
 public class SecurityConfig {
 	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http, JWTAuthenticationFilter jwtFilter) throws Exception {
+	SecurityFilterChain filterChain(HttpSecurity http, JWTAuthenticationFilter jwtFilter, OAuth2Service oAuth2Service,
+			OAuth2SuccessHandler oAuth2SuccessHandler
+			) throws Exception {
 		http
 		// CORS 관련 빈객체 등록
 		.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 		// CSRF는 SPA 어플리케이션에서 사용하지 않음.
 		.csrf(csrf -> csrf.disable())
+		.exceptionHandling(e -> e
+				.authenticationEntryPoint((req, res, ex) -> {
+					// 인증 실패시 401처리
+					res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED");
+				}).accessDeniedHandler((req, res, ex) -> {
+					// 인증 실패시 403처리
+					res.sendError(HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN");
+				})
+				)
+		// 서버에서 인증상태를 관리하지 않게 하는 설정.
+		.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+		.oauth2Login(oauth -> oauth
+				// 인증 정보를 바탕으로 자동 회원가입.
+				// 요청처리 완료 후, accessToken과 refreshToken을 사용자에게 전달.
+				.userInfoEndpoint(u -> u.userService(oAuth2Service))
+				.successHandler(oAuth2SuccessHandler)
+				)
 		.authorizeHttpRequests(auth -> auth
-				.requestMatchers("/auth/login").permitAll()
-				.requestMatchers("/auth/signup").permitAll()
-				.requestMatchers("/auth/logout").permitAll()
-				.requestMatchers("/auth/refresh").permitAll()
+				.requestMatchers("/auth/login", "/auth/signup", "/auth/logout", "/auth/refresh").permitAll()
+				.requestMatchers("/oauth2/**", "/login**", "/error").permitAll()
 				.requestMatchers("/**").authenticated()
 				);
 		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -66,6 +88,11 @@ public class SecurityConfig {
 	PasswordEncoder passwordEncoder() {
 		PasswordEncoder encoder = new BCryptPasswordEncoder();
 		return encoder;
+	}
+	
+	@Bean
+	RestTemplate restTemplate() {
+		return new RestTemplate();
 	}
 }
 

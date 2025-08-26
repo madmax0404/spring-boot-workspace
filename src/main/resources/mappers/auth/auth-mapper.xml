@@ -12,7 +12,7 @@
     <select id="findUserByEmail" resultMap="UserResult">
         SELECT id, email, name, profile, password, authority
         FROM USERS U
-        JOIN user_credentials UC ON U.ID = UC.USER_ID
+        left JOIN user_credentials UC ON U.ID = UC.USER_ID
         JOIN USER_AUTHORITY UA ON U.ID = UA.USER_ID
         WHERE UPPER(EMAIL) = UPPER(#{email})
     </select>
@@ -22,8 +22,8 @@
     	<selectKey keyProperty="id" resultType="long" order="BEFORE">
     		select SQE_USERS_ID.nextval from dual
     	</selectKey>
-    	insert into users(id, email, name)
-    	values(#{id}, #{email}, #{name})
+    	insert into users(id, email, name, profile)
+    	values(#{id}, #{email}, #{name}, #{profile})
     </insert>
     
     <insert id="insertCred">
@@ -43,9 +43,26 @@
     <select id="findUserByUserId" resultMap="UserResult">
         SELECT id, email, name, profile, password, authority
         FROM USERS U
-        JOIN user_credentials UC ON U.ID = UC.USER_ID
+        left JOIN user_credentials UC ON U.ID = UC.USER_ID
         JOIN USER_AUTHORITY UA ON U.ID = UA.USER_ID
         WHERE U.ID = #{id}
+    </select>
+    
+    <insert id="insertUserIdentities">
+    	insert into user_identities
+    	values(SEQ_USER_IDENTITIES_ID.nextval, #{userId}, #{accessToken}, #{provider}, #{providerUserId})
+    </insert>
+    
+    <update id="updateUserIdentities">
+    	update user_identities
+    	set access_token = #{accessToken}
+    	where provider = #{provider} and provider_user_id = #{providerUserId}
+    </update>
+    
+    <select id="getKakaoAccessToken" resultType="string">
+        SELECT ACCESS_TOKEN
+        FROM USER_IDENTITIES
+        WHERE USER_ID = #{userId}
     </select>
 </mapper>
 

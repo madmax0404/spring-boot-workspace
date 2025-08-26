@@ -1,6 +1,7 @@
 package com.kh.menu.security.model.service;
 
 import com.kh.menu.security.model.dto.AuthDto.AuthResult;
+import com.kh.menu.security.model.dto.AuthDto.User;
 
 public interface AuthService {
 
@@ -11,5 +12,9 @@ public interface AuthService {
 	AuthResult signUp(String email, String password);
 
 	AuthResult refreshByCookie(String refreshCookie);
+
+	User findUserByUserId(Long userId);
+
+	String getKakaoAccessToken(Long userId);
 
 }
